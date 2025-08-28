@@ -670,7 +670,47 @@ const LearnerDetails: React.FC<{
                           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       ) : (
-                        <p className="text-gray-900 mt-1">{learner.tu_email}</p>
+                        <p className="text-gray-900 mt-1">{profile?.tup_first_name || 'Not provided'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Last Name</label>
+                      {editMode ? (
+                        <input
+                          type="text"
+                          value={editData.last_name}
+                          onChange={(e) => setEditData(prev => ({ ...prev, last_name: e.target.value }))}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <p className="text-gray-900 mt-1">{profile?.tup_last_name || 'Not provided'}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Username</label>
+                    {editMode ? (
+                      <input
+                        type="text"
+                        value={editData.username}
+                        onChange={(e) => setEditData(prev => ({ ...prev, username: e.target.value }))}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-gray-900 mt-1">@{profile?.tup_username || 'Not provided'}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Email</label>
+                    {editMode ? (
+                      <input
+                        type="email"
+                        value={editData.email}
+                        onChange={(e) => setEditData(prev => ({ ...prev, email: e.target.value }))}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-gray-900 mt-1">{learner.tu_email}</p>
                     )}
                   </div>
                   <div>
@@ -922,4 +962,4 @@ const LearnerDetails: React.FC<{
   );
 };
 
-export default LearnerManagement;text-gray-900 mt-1">{profile?.tup_first_name || 'Not provided'}</p>
+export default LearnerManagement;
