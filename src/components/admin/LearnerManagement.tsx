@@ -36,6 +36,7 @@ interface Learner {
   tu_is_active: boolean;
   tu_created_at: string;
   tbl_user_profiles: {
+    tup_id?: string;
     tup_first_name: string;
     tup_last_name: string;
     tup_username: string;
@@ -51,9 +52,11 @@ interface Enrollment {
   tce_id: string;
   tce_progress_percentage: number;
   tce_enrollment_date: string;
+  tce_completed_at?: string;
   tbl_courses: {
     tc_title: string;
     tc_difficulty_level: string;
+    tc_duration_hours?: number;
   };
 }
 
@@ -120,18 +123,22 @@ const LearnerManagement: React.FC = () => {
     } catch (error) {
       console.error('❌ Failed to load learners:', error);
       setError('Failed to load learners. Please check your database connection.');
-      notification.showError('Load Failed', 'Failed to load learner data from database');
+      if (notification) {
+        notification.showError('Load Failed', 'Failed to load learner data from database');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const filteredLearners = learners.filter(learner => {
+    const profile = learner.tbl_user_profiles;
+    
     const matchesSearch =
       (learner.tu_email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (learner.tbl_user_profiles?.tup_first_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (learner.tbl_user_profiles?.tup_last_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (learner.tbl_user_profiles?.tup_username?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+      (profile?.tup_first_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (profile?.tup_last_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (profile?.tup_username?.toLowerCase() || '').includes(searchTerm.toLowerCase());
 
     const matchesStatus =
       statusFilter === 'all' ||
@@ -162,15 +169,19 @@ const LearnerManagement: React.FC = () => {
 
       if (error) throw error;
 
-      notification.showSuccess(
-        'Status Updated',
-        `Learner ${learner.tbl_user_profiles?.tup_first_name || 'account'} has been ${!currentStatus ? 'activated' : 'deactivated'}`
-      );
+      if (notification) {
+        notification.showSuccess(
+          'Status Updated',
+          `Learner ${learner.tbl_user_profiles?.tup_first_name || 'account'} has been ${!currentStatus ? 'activated' : 'deactivated'}`
+        );
+      }
 
-      loadLearners();
+      await loadLearners();
     } catch (error) {
       console.error('Failed to update learner status:', error);
-      notification.showError('Update Failed', 'Failed to update learner status');
+      if (notification) {
+        notification.showError('Update Failed', 'Failed to update learner status');
+      }
     }
   };
 
@@ -316,108 +327,111 @@ const LearnerManagement: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredLearners.map((learner) => (
-              <tr key={learner.tu_id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10">
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
-                        <span className="text-white font-medium text-sm">
-                          {learner.tbl_user_profiles?.tup_first_name?.charAt(0) || 'L'}
-                        </span>
+            {filteredLearners.map((learner) => {
+              const profile = learner.tbl_user_profiles;
+              return (
+                <tr key={learner.tu_id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-10 w-10">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
+                          <span className="text-white font-medium text-sm">
+                            {profile?.tup_first_name?.charAt(0) || 'L'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {profile?.tup_first_name || 'N/A'} {profile?.tup_last_name || ''}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          @{profile?.tup_username || 'no-username'}
+                        </div>
                       </div>
                     </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {learner.tbl_user_profiles?.tup_first_name} {learner.tbl_user_profiles?.tup_last_name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        @{learner.tbl_user_profiles?.tup_username}
-                      </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{learner.tu_email}</div>
+                    <div className="text-sm text-gray-500">{profile?.tup_mobile || 'Not provided'}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {profile?.tup_education_level || 'Not specified'}
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{learner.tu_email}</div>
-                  <div className="text-sm text-gray-500">{learner.tbl_user_profiles?.tup_mobile}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {learner.tbl_user_profiles?.tup_education_level || 'Not specified'}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {learner.tbl_user_profiles?.tup_interests?.length || 0} interests
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex space-x-2">
+                    <div className="text-sm text-gray-500">
+                      {profile?.tup_interests?.length || 0} interests
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex space-x-2">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        learner.tu_email_verified
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        <Mail className="h-3 w-3 mr-1" />
+                        {learner.tu_email_verified ? 'Email ✓' : 'Email ✗'}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        learner.tu_mobile_verified
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        <Phone className="h-3 w-3 mr-1" />
+                        {learner.tu_mobile_verified ? 'Mobile ✓' : 'Mobile ✗'}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      learner.tu_email_verified
+                      learner.tu_is_active
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      <Mail className="h-3 w-3 mr-1" />
-                      {learner.tu_email_verified ? 'Email ✓' : 'Email ✗'}
+                      {learner.tu_is_active ? (
+                        <>
+                          <UserCheck className="h-3 w-3 mr-1" />
+                          Active
+                        </>
+                      ) : (
+                        <>
+                          <UserX className="h-3 w-3 mr-1" />
+                          Inactive
+                        </>
+                      )}
                     </span>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      learner.tu_mobile_verified
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      <Phone className="h-3 w-3 mr-1" />
-                      {learner.tu_mobile_verified ? 'Mobile ✓' : 'Mobile ✗'}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    learner.tu_is_active
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {learner.tu_is_active ? (
-                      <>
-                        <UserCheck className="h-3 w-3 mr-1" />
-                        Active
-                      </>
-                    ) : (
-                      <>
-                        <UserX className="h-3 w-3 mr-1" />
-                        Inactive
-                      </>
-                    )}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <div className="flex items-center">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    {new Date(learner.tu_created_at).toLocaleDateString()}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleViewLearner(learner)}
-                      className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
-                      title="View Details"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleToggleStatus(learner, learner.tu_is_active)}
-                      className={`p-1 rounded ${
-                        learner.tu_is_active
-                          ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
-                          : 'text-green-600 hover:text-green-800 hover:bg-green-50'
-                      }`}
-                      title={learner.tu_is_active ? 'Deactivate' : 'Activate'}
-                    >
-                      {learner.tu_is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      {new Date(learner.tu_created_at).toLocaleDateString()}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleViewLearner(learner)}
+                        className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(learner, learner.tu_is_active)}
+                        className={`p-1 rounded ${
+                          learner.tu_is_active
+                            ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
+                            : 'text-green-600 hover:text-green-800 hover:bg-green-50'
+                        }`}
+                        title={learner.tu_is_active ? 'Deactivate' : 'Activate'}
+                      >
+                        {learner.tu_is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -469,7 +483,7 @@ const LearnerDetails: React.FC<{
     if (activeTab === 'courses') {
       loadEnrollments();
     }
-  }, [activeTab]);
+  }, [activeTab, learner.tu_id]);
 
   const loadEnrollments = async () => {
     setLoading(true);
@@ -501,6 +515,14 @@ const LearnerDetails: React.FC<{
   };
 
   const handleSaveEdit = async () => {
+    if (!learner.tbl_user_profiles?.tup_id) {
+      console.error('No profile ID found');
+      if (notification) {
+        notification.showError('Update Failed', 'Profile information is incomplete');
+      }
+      return;
+    }
+
     try {
       // Update tbl_users table
       const { error: userError } = await supabase
@@ -531,12 +553,16 @@ const LearnerDetails: React.FC<{
 
       if (profileError) throw profileError;
 
-      notification.showSuccess('Learner Updated', 'Learner information has been updated successfully');
+      if (notification) {
+        notification.showSuccess('Learner Updated', 'Learner information has been updated successfully');
+      }
       setEditMode(false);
-      onUpdate();
+      await onUpdate();
     } catch (error) {
       console.error('Failed to update learner:', error);
-      notification.showError('Update Failed', 'Failed to update learner information');
+      if (notification) {
+        notification.showError('Update Failed', 'Failed to update learner information');
+      }
     }
   };
 
@@ -545,6 +571,8 @@ const LearnerDetails: React.FC<{
     { id: 'courses', label: 'Enrolled Courses', icon: BookOpen },
     { id: 'progress', label: 'Learning Progress', icon: TrendingUp }
   ];
+
+  const profile = learner.tbl_user_profiles;
 
   return (
     <div className="bg-white rounded-xl shadow-sm">
@@ -560,7 +588,7 @@ const LearnerDetails: React.FC<{
             </button>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">
-                {learner.tbl_user_profiles?.tup_first_name} {learner.tbl_user_profiles?.tup_last_name}
+                {profile?.tup_first_name || 'N/A'} {profile?.tup_last_name || ''}
               </h3>
               <p className="text-gray-600">Learner Details & Management</p>
             </div>
@@ -642,47 +670,7 @@ const LearnerDetails: React.FC<{
                           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       ) : (
-                        <p className="text-gray-900 mt-1">{learner.tbl_user_profiles?.tup_first_name || 'Not provided'}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Last Name</label>
-                      {editMode ? (
-                        <input
-                          type="text"
-                          value={editData.last_name}
-                          onChange={(e) => setEditData(prev => ({ ...prev, last_name: e.target.value }))}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      ) : (
-                        <p className="text-gray-900 mt-1">{learner.tbl_user_profiles?.tup_last_name || 'Not provided'}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Username</label>
-                    {editMode ? (
-                      <input
-                        type="text"
-                        value={editData.username}
-                        onChange={(e) => setEditData(prev => ({ ...prev, username: e.target.value }))}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-900 mt-1">@{learner.tbl_user_profiles?.tup_username || 'Not set'}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Email</label>
-                    {editMode ? (
-                      <input
-                        type="email"
-                        value={editData.email}
-                        onChange={(e) => setEditData(prev => ({ ...prev, email: e.target.value }))}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-900 mt-1">{learner.tu_email}</p>
+                        <p className="text-gray-900 mt-1">{learner.tu_email}</p>
                     )}
                   </div>
                   <div>
@@ -695,7 +683,7 @@ const LearnerDetails: React.FC<{
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     ) : (
-                      <p className="text-gray-900 mt-1">{learner.tbl_user_profiles?.tup_mobile || 'Not provided'}</p>
+                      <p className="text-gray-900 mt-1">{profile?.tup_mobile || 'Not provided'}</p>
                     )}
                   </div>
                   <div>
@@ -717,7 +705,7 @@ const LearnerDetails: React.FC<{
                         <option value="Other">Other</option>
                       </select>
                     ) : (
-                      <p className="text-gray-900 mt-1">{learner.tbl_user_profiles?.tup_education_level || 'Not specified'}</p>
+                      <p className="text-gray-900 mt-1">{profile?.tup_education_level || 'Not specified'}</p>
                     )}
                   </div>
                 </div>
@@ -746,19 +734,62 @@ const LearnerDetails: React.FC<{
                         rows={3}
                       />
                     ) : (
-                      <p className="text-gray-900 mt-1">{learner.tbl_user_profiles?.tup_learning_goals || 'Not specified'}</p>
+                      <p className="text-gray-900 mt-1">{profile?.tup_learning_goals || 'Not specified'}</p>
                     )}
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Interests</label>
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {learner.tbl_user_profiles?.tup_interests?.map((interest, index) => (
-                        <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                          {interest}
-                        </span>
-                      )) || <span className="text-gray-500 text-sm">No interests specified</span>}
+                      {profile?.tup_interests && profile.tup_interests.length > 0 ? (
+                        profile.tup_interests.map((interest, index) => (
+                          <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                            {interest}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-gray-500 text-sm">No interests specified</span>
+                      )}
                     </div>
                   </div>
+                  {editMode && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Account Status</label>
+                        <select
+                          value={editData.is_active ? 'active' : 'inactive'}
+                          onChange={(e) => setEditData(prev => ({ ...prev, is_active: e.target.value === 'active' }))}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Email Verification</label>
+                          <select
+                            value={editData.email_verified ? 'verified' : 'unverified'}
+                            onChange={(e) => setEditData(prev => ({ ...prev, email_verified: e.target.value === 'verified' }))}
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="verified">Verified</option>
+                            <option value="unverified">Unverified</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Mobile Verification</label>
+                          <select
+                            value={editData.mobile_verified ? 'verified' : 'unverified'}
+                            onChange={(e) => setEditData(prev => ({ ...prev, mobile_verified: e.target.value === 'verified' }))}
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="verified">Verified</option>
+                            <option value="unverified">Unverified</option>
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -794,7 +825,7 @@ const LearnerDetails: React.FC<{
                           </div>
                           <div>
                             <h5 className="font-medium text-gray-900">
-                              {enrollment.tbl_courses?.tc_title}
+                              {enrollment.tbl_courses?.tc_title || 'Course Title Not Available'}
                             </h5>
                             <p className="text-sm text-gray-500">
                               Enrolled: {new Date(enrollment.tce_enrollment_date).toLocaleDateString()}
@@ -804,7 +835,9 @@ const LearnerDetails: React.FC<{
                         <div className="grid grid-cols-2 gap-4 mt-4">
                           <div>
                             <span className="text-xs font-medium text-gray-500">Difficulty</span>
-                            <p className="text-sm text-gray-900 capitalize">{enrollment.tbl_courses?.tc_difficulty_level}</p>
+                            <p className="text-sm text-gray-900 capitalize">
+                              {enrollment.tbl_courses?.tc_difficulty_level || 'Not specified'}
+                            </p>
                           </div>
                           <div>
                             <span className="text-xs font-medium text-gray-500">Progress</span>
@@ -812,13 +845,23 @@ const LearnerDetails: React.FC<{
                               <div className="flex-1 bg-gray-200 rounded-full h-2">
                                 <div 
                                   className="bg-blue-600 h-2 rounded-full" 
-                                  style={{ width: `${enrollment.tce_progress_percentage}%` }}
+                                  style={{ width: `${Math.min(100, Math.max(0, enrollment.tce_progress_percentage))}%` }}
                                 ></div>
                               </div>
-                              <span className="text-sm font-medium">{enrollment.tce_progress_percentage}%</span>
+                              <span className="text-sm font-medium">
+                                {Math.round(enrollment.tce_progress_percentage)}%
+                              </span>
                             </div>
                           </div>
                         </div>
+                        {enrollment.tce_completed_at && (
+                          <div className="mt-2">
+                            <span className="text-xs font-medium text-gray-500">Completed:</span>
+                            <p className="text-sm text-green-600">
+                              {new Date(enrollment.tce_completed_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -854,13 +897,15 @@ const LearnerDetails: React.FC<{
               </div>
               <div className="bg-yellow-50 p-6 rounded-lg text-center">
                 <div className="text-2xl font-bold text-yellow-600">
-                  {enrollments.length > 0 ? Math.round(enrollments.reduce((sum, e) => sum + e.tce_progress_percentage, 0) / enrollments.length) : 0}%
+                  {enrollments.length > 0 
+                    ? Math.round(enrollments.reduce((sum, e) => sum + e.tce_progress_percentage, 0) / enrollments.length) 
+                    : 0}%
                 </div>
                 <div className="text-sm text-yellow-600">Avg Progress</div>
               </div>
               <div className="bg-purple-50 p-6 rounded-lg text-center">
                 <div className="text-2xl font-bold text-purple-600">
-                  {enrollments.filter(e => e.tce_progress_percentage === 100).length}
+                  {enrollments.filter(e => e.tce_completed_at).length}
                 </div>
                 <div className="text-sm text-purple-600">Certificates</div>
               </div>
@@ -877,4 +922,44 @@ const LearnerDetails: React.FC<{
   );
 };
 
-export default LearnerManagement;
+export default LearnerManagement;text-gray-900 mt-1">{profile?.tup_first_name || 'Not provided'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Last Name</label>
+                      {editMode ? (
+                        <input
+                          type="text"
+                          value={editData.last_name}
+                          onChange={(e) => setEditData(prev => ({ ...prev, last_name: e.target.value }))}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <p className="text-gray-900 mt-1">{profile?.tup_last_name || 'Not provided'}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Username</label>
+                    {editMode ? (
+                      <input
+                        type="text"
+                        value={editData.username}
+                        onChange={(e) => setEditData(prev => ({ ...prev, username: e.target.value }))}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-gray-900 mt-1">@{profile?.tup_username || 'Not set'}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Email</label>
+                    {editMode ? (
+                      <input
+                        type="email"
+                        value={editData.email}
+                        onChange={(e) => setEditData(prev => ({ ...prev, email: e.target.value }))}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="
