@@ -112,8 +112,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error('❌ Error handling auth state change:', error);
-        sessionManager.removeSession();
-        setUser(null);
+        // Don't clear session on auth state change errors unless it's a sign out
+        if (event === 'SIGNED_OUT') {
+          sessionManager.removeSession();
+          setUser(null);
+        }
       }
     });
 

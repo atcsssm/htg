@@ -12,23 +12,35 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, userType }) =
   const { user, loading } = useAuth();
   const location = useLocation();
   const [isChecking, setIsChecking] = useState(true);
+  const [hasCheckedOnce, setHasCheckedOnce] = useState(false);
 
   useEffect(() => {
     // Additional session check when route changes
     const checkSession = async () => {
+      // Skip additional checks if we've already checked and user is valid
+      if (hasCheckedOnce && user && !loading) {
+        setIsChecking(false);
+        return;
+      }
+      
       setIsChecking(true);
 
       try {
-        // Wait a bit for auth context to initialize
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Only wait if this is the first check
+        if (!hasCheckedOnce) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
 
         // Check if we have a valid session
         const sessionInfo = sessionUtils.getSessionInfo();
 
-        if (!sessionInfo.isValid && !loading) {
+        // Only clear sessions if we're definitely sure the session is invalid
+        if (!sessionInfo.isValid && !loading && sessionInfo.timeRemaining !== undefined && sessionInfo.timeRemaining <= 0) {
           console.log('🔒 No valid session found in ProtectedRoute');
-          // Session will be cleared by sessionUtils, no need to clear here
+          sessionUtils.clearAllSessions();
         }
+        
+        setHasCheckedOnce(true);
       } catch (error) {
         console.error('❌ Error checking session in ProtectedRoute:', error);
       } finally {
@@ -37,7 +49,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, userType }) =
     };
 
     checkSession();
-  }, [location.pathname, loading]);
+  }, [location.pathname, loading, user, hasCheckedOnce]);
 
   // Show loading spinner while checking authentication
   if (loading || isChecking) {

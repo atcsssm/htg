@@ -80,7 +80,18 @@ export const sessionUtils = {
   // Check if current page is a public page
   isPublicPage: (): boolean => {
     if (typeof window === 'undefined') return false;
-    const publicPages = ['/', '/about', '/contact', '/faq', '/policies', '/join-customer', '/join-company', '/subscription-plans'];
+    const publicPages = [
+      '/', 
+      '/about', 
+      '/contact', 
+      '/faq', 
+      '/policies', 
+      '/courses',
+      '/tutors',
+      '/learners',
+      '/job-seekers',
+      '/job-providers'
+    ];
     return publicPages.includes(window.location.pathname);
   },
 
@@ -89,18 +100,28 @@ export const sessionUtils = {
     if (typeof window === 'undefined') return;
 
     let isHandlingVisibilityChange = false;
+    let lastVisibilityChangeTime = 0;
 
     // Handle visibility change (tab switching)
     document.addEventListener('visibilitychange', async () => {
       if (isHandlingVisibilityChange) return;
+      
+      // Prevent rapid successive visibility changes
+      const now = Date.now();
+      if (now - lastVisibilityChangeTime < 1000) return; // Debounce for 1 second
+      lastVisibilityChangeTime = now;
+      
       isHandlingVisibilityChange = true;
 
       try {
-        if (document.visibilityState === 'visible' && !sessionUtils.isOnLoginPage()) {
+        // Only check session when tab becomes visible AND user has been away for more than 5 seconds
+        if (document.visibilityState === 'visible' && 
+            !sessionUtils.isOnLoginPage() && 
+            !sessionUtils.isPublicPage()) {
           console.log('🔍 Tab became visible, checking session validity...');
 
-          // Small delay to ensure any ongoing auth operations complete
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Longer delay to ensure any ongoing auth operations complete
+          await new Promise(resolve => setTimeout(resolve, 500));
 
           const sessionInfo = sessionUtils.getSessionInfo();
           const adminSessionToken = sessionStorage.getItem('admin_session_token');
@@ -115,11 +136,14 @@ export const sessionUtils = {
             }
           } else {
             // For customer area, check Supabase session
-            if (!sessionInfo.isValid) {
-              if (!sessionUtils.isPublicPage()) {
+            // Only redirect if session is definitely invalid and user is on a protected route
+            if (!sessionInfo.isValid && sessionInfo.timeRemaining !== undefined && sessionInfo.timeRemaining <= 0) {
+              // Double-check by trying to restore session first
+              const restored = await sessionUtils.refreshSession();
+              if (!restored) {
                 console.log('🔒 No valid user session, redirecting to customer login');
                 sessionUtils.clearAllSessions();
-                window.location.href = '/customer/login';
+                window.location.href = '/login';
               }
             }
           }
@@ -138,16 +162,23 @@ export const sessionUtils = {
 
         // Handle user session cleared in another tab
         if (e.key === `supabase-session-${currentUserId}` && e.newValue === null) {
-          if (!sessionUtils.isOnLoginPage() && !sessionUtils.isInAdminArea() && !sessionUtils.isPublicPage()) {
+          // Only redirect if we're on a protected route and not already on login page
+          if (!sessionUtils.isOnLoginPage() && 
+              !sessionUtils.isInAdminArea() && 
+              !sessionUtils.isPublicPage() &&
+              window.location.pathname.includes('/dashboard')) {
             console.log('🔄 User session cleared in another tab, redirecting...');
             sessionUtils.clearAllSessions();
-            window.location.href = '/customer/login';
+            window.location.href = '/login';
           }
         }
 
         // Handle current user ID changed in another tab
         if (e.key === 'current-user-id' && e.newValue !== currentUserId) {
-          if (!sessionUtils.isOnLoginPage() && !sessionUtils.isPublicPage()) {
+          // Only reload if we're on a dashboard page
+          if (!sessionUtils.isOnLoginPage() && 
+              !sessionUtils.isPublicPage() && 
+              window.location.pathname.includes('/dashboard')) {
             console.log('🔄 Current user changed in another tab, reloading...');
             window.location.reload();
           }
@@ -165,13 +196,6 @@ export const sessionUtils = {
       } catch (error) {
         console.error('❌ Error in storage event handler:', error);
       }
-    });
-
-    // Handle beforeunload (optional - for better UX, you might want to keep sessions)
-    window.addEventListener('beforeunload', () => {
-      // Optional: Clear sessions on page close
-      // Commented out for better UX - sessions will persist across browser sessions
-      // sessionUtils.clearAllSessions();
     });
 
     console.log('✅ Session listeners setup completed');
